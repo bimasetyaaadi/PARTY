@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toyota Auto 2000 Bekasi Timur - Tracking Spare Parts</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        .timeline-step {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+        .timeline-step::after {
+            content: '';
+            position: absolute;
+            top: 30px;
+            left: 60px;
+            right: -60px;
+            height: 2px;
+            background: #e5e7eb;
+            z-index: 1;
+        }
+        .timeline-step:last-child::after {
+            display: none;
+        }
+        .timeline-step.active::after {
+            background: #dc2626;
+        }
+        .timeline-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            position: relative;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .status-pending { background: #f3f4f6; color: #6b7280; }
+        .status-processing { background: #fef3c7; color: #d97706; }
+        .status-delivery { background: #dbeafe; color: #2563eb; }
+        .status-arrived { background: #dcfce7; color: #16a34a; }
+        .status-delivered { background: #dc2626; color: white; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <!-- Logo Toyota (dapat diubah melalui kode) -->
+                <img src="https://img.favpng.com/17/8/3/toyota-auto2000-serang-car-pt-toyota-astra-motor-toyota-auto-2000-png-favpng-XsMd3fKFcDZRVyGh49XwmMX8u.jpg" alt="Toyota Logo" class="h-12 w-20">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800">Toyota Auto 2000</h1>
+                    <p class="text-sm text-gray-600">Bekasi Timur</p>
+                </div>
+            </div>
+            <div class="flex space-x-4">
+                <button onclick="showCustomerView()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Customer</button>
+                <button onclick="showAdminLogin()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Admin</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Banner Promosi (dapat diubah oleh admin) -->
+    <div id="promoBanner" class="bg-gradient-to-r from-white-600 to-white-800 text-black py-8">
+        <div class="container mx-auto px-4 text-center">
+            <img src="https://auto2000.co.id/promosi/_next/image?url=https%3A%2F%2Fastradigitaldigiroomprd.blob.core.windows.net%2Fstorage-prd-001%2F20250731T022118403ZVARR%2520PESTA%2520MERDEKA06%25204%25201%25201.webp&w=828&q=65" alt="Banner Promosi" style="max-width:100%; height:auto;">
+            
+            <!-- 3 Kolom Fitur -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                <div class="text-center">
+                    <img src="https://d1g6w7sntckt92.cloudfront.net/public/images/color_option_images/unVhEcDT9UUrXmtKqeluFgSeaWF8o7v8lkuDCFHM.png" alt="Pengiriman Cepat" class="w-16 h-16 mx-auto mb-3">
+                    <h3 class="font-semibold text-lg mb-2">Pengiriman Cepat</h3>
+                    <p class="text-sm opacity-90">Spare part sampai dalam 1-3 hari kerja</p>
+                </div>
+                <div class="text-center">
+                    <img src="https://d1g6w7sntckt92.cloudfront.net/public/images/color_option_images/unVhEcDT9UUrXmtKqeluFgSeaWF8o7v8lkuDCFHM.png" alt="Mobil Zenix" class="w-16 h-16 mx-auto mb-3">
+                    <h3 class="font-semibold text-lg mb-2">Pemasangan Profesional</h3>
+                    <p class="text-sm opacity-90">Teknisi berpengalaman dan bersertifikat</p>
+                </div>
+                <div class="text-center">
+                    <img src="https://d1g6w7sntckt92.cloudfront.net/public/images/color_option_images/unVhEcDT9UUrXmtKqeluFgSeaWF8o7v8lkuDCFHM.png" alt="Sparepart Original" class="w-16 h-16 mx-auto mb-3">
+                    <h3 class="font-semibold text-lg mb-2">Sparepart Original</h3>
+                    <p class="text-sm opacity-90">100% original dari Toyota dengan garansi</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer View -->
+    <div id="customerView" class="container mx-auto px-4 py-8">
+        <!-- Search Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Cek Progress Order Spare Part</h2>
+                <p class="text-gray-600 mb-4">Masukkan nomor polisi untuk melihat status order Anda</p>
+            </div>
+            <div class="max-w-md mx-auto">
+                <div class="flex space-x-4">
+                    <input type="text" id="searchPlate" placeholder="Contoh: B 1234 ABC" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-center">
+                    <button onclick="searchOrder()" class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Cari</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Results -->
+        <div id="searchResults" class="hidden">
+            <!-- Order Details Grid (4 kolom x 3 baris) -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h3 class="text-xl font-bold text-gray-800 mb-6">Detail Order</h3>
+                <div class="grid grid-cols-4 gap-4">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Nomor Polisi</label>
+                        <p id="plateNumber" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Ticket No</label>
+                        <p id="ticketNo" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Tanggal Order</label>
+                        <p id="orderDate" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Order No</label>
+                        <p id="orderNo" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Nama Part</label>
+                        <p id="partName" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Part Number</label>
+                        <p id="partNumber" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Estimasi Harga</label>
+                        <p id="estimatedPrice" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Tanggal Appointment</label>
+                        <p id="appointmentDate" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Estimasi Kedatangan Part</label>
+                        <p id="estimatedArrival" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Progress Pengiriman</label>
+                        <p id="shippingProgress" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Status Part</label>
+                        <p id="partStatus" class="text-black font-semibold">-</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Update Terakhir</label>
+                        <p id="lastUpdate" class="text-black font-semibold">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline Progress -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h3 class="text-xl font-bold text-gray-800 mb-6">Progress Timeline</h3>
+                <div id="progressTimeline" class="flex items-center justify-between mb-6">
+                    <!-- Timeline akan diisi oleh JavaScript -->
+                </div>
+                <div id="timelineDescription" class="bg-gray-50 rounded-lg p-4">
+                    <!-- Deskripsi akan diisi oleh JavaScript -->
+                </div>
+            </div>
+
+            <!-- Testimoni -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h3 class="text-xl font-bold text-gray-800 mb-6">Testimoni Pelanggan</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="text-center">
+                        <img id="testimonial1Image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e5e7eb'/%3E%3Ctext x='50' y='55' text-anchor='middle' fill='%23374151' font-family='Arial' font-size='14'%3EFoto%3C/text%3E%3C/svg%3E" alt="Testimoni 1" class="w-20 h-20 rounded-full mx-auto mb-4">
+                        <p class="text-gray-600 italic">"Pelayanan sangat memuaskan, spare part original dan proses cepat!"</p>
+                        <p class="text-sm text-gray-500 mt-2">- Budi Santoso</p>
+                    </div>
+                    <div class="text-center">
+                        <img id="testimonial2Image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e5e7eb'/%3E%3Ctext x='50' y='55' text-anchor='middle' fill='%23374151' font-family='Arial' font-size='14'%3EFoto%3C/text%3E%3C/svg%3E" alt="Testimoni 2" class="w-20 h-20 rounded-full mx-auto mb-4">
+                        <p class="text-gray-600 italic">"Tracking order sangat mudah, bisa pantau progress secara real-time."</p>
+                        <p class="text-sm text-gray-500 mt-2">- Sari Dewi</p>
+                    </div>
+                    <div class="text-center">
+                        <img id="testimonial3Image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e5e7eb'/%3E%3Ctext x='50' y='55' text-anchor='middle' fill='%23374151' font-family='Arial' font-size='14'%3EFoto%3C/text%3E%3C/svg%3E" alt="Testimoni 3" class="w-20 h-20 rounded-full mx-auto mb-4">
+                        <p class="text-gray-600 italic">"Harga transparan dan sesuai estimasi, recommended!"</p>
+                        <p class="text-sm text-gray-500 mt-2">- Ahmad Rizki</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Login Modal -->
+    <div id="adminLoginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Admin Login</h2>
+            <form onsubmit="adminLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input type="text" id="adminUsername" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="adminPassword" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500" required>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="flex-1 bg-red-600 text-white py-2 rounded-md hover:bg-red-700">Login</button>
+                    <button type="button" onclick="closeAdminLogin()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" class="hidden container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Admin Dashboard</h2>
+                <button onclick="adminLogout()" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Logout</button>
+            </div>
+
+            <!-- Admin Tabs -->
+            <div class="border-b border-gray-200 mb-6">
+                <nav class="-mb-px flex space-x-8">
+                    <button onclick="showAdminTab('orders')" class="admin-tab-btn py-2 px-1 border-b-2 border-red-500 text-red-600 font-medium">Kelola Order</button>
+                    <button onclick="showAdminTab('upload')" class="admin-tab-btn py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700">Upload Excel</button>
+                    <button onclick="showAdminTab('interface')" class="admin-tab-btn py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700">Kelola Interface</button>
+                    <button onclick="showAdminTab('users')" class="admin-tab-btn py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700">Kelola Admin</button>
+                </nav>
+            </div>
+
+            <!-- Orders Tab -->
+            <div id="ordersTab" class="admin-tab-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Data Order</h3>
+                    <button onclick="showAddOrderModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Tambah Order</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nomor Polisi</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ticket No</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama Part</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody" class="divide-y divide-gray-200">
+                            <!-- Data akan diisi oleh JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Upload Tab -->
+            <div id="uploadTab" class="admin-tab-content hidden">
+                <h3 class="text-lg font-semibold mb-4">Upload Data Excel</h3>
+                <div class="mb-4">
+                    <button onclick="downloadTemplate()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Download Template Excel</button>
+                </div>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                    <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="previewExcel()" class="mb-4">
+                    <div id="excelPreview" class="hidden">
+                        <h4 class="font-semibold mb-2">Preview Data:</h4>
+                        <div class="overflow-x-auto mb-4">
+                            <table id="previewTable" class="min-w-full bg-white border border-gray-200">
+                                <!-- Preview akan diisi oleh JavaScript -->
+                            </table>
+                        </div>
+                        <div class="flex space-x-4">
+                            <button onclick="confirmUpload()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Konfirmasi Upload</button>
+                            <button onclick="cancelUpload()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Batal</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interface Tab -->
+            <div id="interfaceTab" class="admin-tab-content hidden">
+                <h3 class="text-lg font-semibold mb-4">Kelola Interface Customer</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="font-medium mb-3">Logo Perusahaan</h4>
+                        <!-- Input untuk URL logo -->
+                        <input type="url" id="logoUrl" placeholder="Masukkan URL Logo (http://... atau https://...)" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-2">
+                        <!-- Input untuk upload file logo -->
+                        <input type="file" id="logoFile" accept="image/*" onchange="handleLogoUpload()" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-3">
+                        <button onclick="updateLogo()" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update Logo</button>
+                        <p class="text-xs text-gray-500 mt-2">* Bisa menggunakan URL atau upload file gambar</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="font-medium mb-3">Banner Promosi</h4>
+                        <!-- Input untuk URL banner -->
+                        <input type="url" id="bannerUrl" placeholder="Masukkan URL Banner (http://... atau https://...)" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-2">
+                        <!-- Input untuk upload file banner -->
+                        <input type="file" id="bannerFile" accept="image/*" onchange="handleBannerUpload()" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-3">
+                        <button onclick="updateBanner()" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update Banner</button>
+                        <p class="text-xs text-gray-500 mt-2">* Bisa menggunakan URL atau upload file gambar</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="font-medium mb-3">Testimoni 1</h4>
+                        <!-- Input untuk URL testimoni 1 -->
+                        <input type="url" id="testimonial1Url" placeholder="Masukkan URL Foto Testimoni 1" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-2">
+                        <!-- Input untuk upload file testimoni 1 -->
+                        <input type="file" id="testimonial1File" accept="image/*" onchange="handleTestimonialUpload(1)" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-3">
+                        <button onclick="updateTestimonial(1)" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update Testimoni 1</button>
+                        <p class="text-xs text-gray-500 mt-2">* Bisa menggunakan URL atau upload file gambar</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="font-medium mb-3">Testimoni 2</h4>
+                        <!-- Input untuk URL testimoni 2 -->
+                        <input type="url" id="testimonial2Url" placeholder="Masukkan URL Foto Testimoni 2" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-2">
+                        <!-- Input untuk upload file testimoni 2 -->
+                        <input type="file" id="testimonial2File" accept="image/*" onchange="handleTestimonialUpload(2)" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-3">
+                        <button onclick="updateTestimonial(2)" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update Testimoni 2</button>
+                        <p class="text-xs text-gray-500 mt-2">* Bisa menggunakan URL atau upload file gambar</p>
+                    </div>
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="font-medium mb-3">Testimoni 3</h4>
+                        <!-- Input untuk URL testimoni 3 -->
+                        <input type="url" id="testimonial3Url" placeholder="Masukkan URL Foto Testimoni 3" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-2">
+                        <!-- Input untuk upload file testimoni 3 -->
+                        <input type="file" id="testimonial3File" accept="image/*" onchange="handleTestimonialUpload(3)" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-3">
+                        <button onclick="updateTestimonial(3)" class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update Testimoni 3</button>
+                        <p class="text-xs text-gray-500 mt-2">* Bisa menggunakan URL atau upload file gambar</p>
+                    </div>
+                </div>
+                
+                <!-- Kelola Gambar Fitur Banner -->
+                <div class="mt-8">
+                    <h3 class="text-lg font-semibold mb-4">Kelola Gambar Fitur Banner</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <h4 class="font-medium mb-3">Fitur 1 - Pengiriman Cepat</h4>
+                            <!-- Input untuk URL fitur 1 -->
+                            <input type="url" id="feature1Url" placeholder="Masukkan URL Gambar Pengiriman Cepat" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-2">
+                            <!-- Input untuk upload file fitur 1 -->
+                            <input type="file" id="feature1File" accept="image/*" onchange="handleFeatureUpload(1)" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-3">
+                            <button onclick="updateFeature(1)" class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Update Fitur 1</button>
+                            <p class="text-xs text-gray-500 mt-2">* Bisa menggunakan URL atau upload file gambar</p>
+                        </div>
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <h4 class="font-medium mb-3">Fitur 2 - Pemasangan Profesional</h4>
+                            <!-- Input untuk URL fitur 2 -->
+                            <input type="url" id="feature2Url" placeholder="Masukkan URL Gambar Pemasangan Profesional" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-2">
+                            <!-- Input untuk upload file fitur 2 -->
+                            <input type="file" id="feature2File" accept="image/*" onchange="handleFeatureUpload(2)" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-3">
+                            <button onclick="updateFeature(2)" class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Update Fitur 2</button>
+                            <p class="text-xs text-gray-500 mt-2">* Bisa menggunakan URL atau upload file gambar</p>
+                        </div>
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <h4 class="font-medium mb-3">Fitur 3 - Sparepart Original</h4>
+                            <!-- Input untuk URL fitur 3 -->
+                            <input type="url" id="feature3Url" placeholder="Masukkan URL Gambar Sparepart Original" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-2">
+                            <!-- Input untuk upload file fitur 3 -->
+                            <input type="file" id="feature3File" accept="image/*" onchange="handleFeatureUpload(3)" class="w-full px-3 py-2 border border-gray-300 rounded-md mb-3">
+                            <button onclick="updateFeature(3)" class="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Update Fitur 3</button>
+                            <p class="text-xs text-gray-500 mt-2">* Bisa menggunakan URL atau upload file gambar</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="usersTab" class="admin-tab-content hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Kelola Admin</h3>
+                    <button onclick="showAddAdminModal()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Tambah Admin</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminsTableBody" class="divide-y divide-gray-200">
+                            <!-- Data akan diisi oleh JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-600 text-white py-8">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                    <h4 class="font-bold mb-3">Alamat</h4>
+                    <p class="text-sm">Jl. Diponegoro No. 38<br>Bekasi 17510</p>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-3">Kontak</h4>
+                    <p class="text-sm">Telp: (021) 880-2000<br>WhatsApp: 08xx-xxxx-xxxx</p>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-3">Jam Operasional</h4>
+                    <p class="text-sm">Senin - Sabtu: 08:00 - 16:00<br>Kamis: 08:00 - 14:00<br>Minggu: Tutup</p>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-3">Layanan Kami</h4>
+                    <ul class="text-sm space-y-1">
+                        <li>• Spare Parts Original</li>
+                        <li>• Service Berkala</li>
+                        <li>• Body Repair</li>
+                        <li>• Home Service</li>
+                        <li>• Konsultasi Teknis</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-500 mt-6 pt-6 text-center text-sm">
+                <p>&copy; 2024 Toyota Auto 2000 Bekasi Timur. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+    <!-- Add Order Modal -->
+    <div id="addOrderModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Tambah Order Baru</h2>
+            <form onsubmit="addOrder(event)">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nomor Polisi</label>
+                        <input type="text" id="newPlateNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ticket No</label>
+                        <input type="text" id="newTicketNo" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Order No</label>
+                        <input type="text" id="newOrderNo" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nama Part</label>
+                        <input type="text" id="newPartName" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Part Number</label>
+                        <input type="text" id="newPartNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Estimasi Harga</label>
+                        <input type="text" id="newEstimatedPrice" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal Appointment</label>
+                        <input type="date" id="newAppointmentDate" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Estimasi Kedatangan</label>
+                        <input type="date" id="newEstimatedArrival" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                        <select id="newStatus" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                            <option value="order_placement">Order Placement</option>
+                            <option value="order_processing">Order Processing</option>
+                            <option value="delivery">Delivery</option>
+                            <option value="arrived">Arrived</option>
+                            <option value="delivered">Delivered to Customer</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex space-x-4 mt-6">
+                    <button type="submit" class="flex-1 bg-green-600 text-white py-2 rounded-md hover:bg-green-700">Simpan</button>
+                    <button type="button" onclick="closeAddOrderModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Order Modal -->
+    <div id="editOrderModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Edit Order</h2>
+            <form onsubmit="updateOrder(event)">
+                <input type="hidden" id="editOrderIndex">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nomor Polisi</label>
+                        <input type="text" id="editPlateNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Ticket No</label>
+                        <input type="text" id="editTicketNo" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Order No</label>
+                        <input type="text" id="editOrderNo" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nama Part</label>
+                        <input type="text" id="editPartName" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Part Number</label>
+                        <input type="text" id="editPartNumber" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Estimasi Harga</label>
+                        <input type="text" id="editEstimatedPrice" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tanggal Appointment</label>
+                        <input type="date" id="editAppointmentDate" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Estimasi Kedatangan</label>
+                        <input type="date" id="editEstimatedArrival" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                        <select id="editStatus" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                            <option value="order_placement">Order Placement</option>
+                            <option value="order_processing">Order Processing</option>
+                            <option value="delivery">Delivery</option>
+                            <option value="arrived">Arrived</option>
+                            <option value="delivered">Delivered to Customer</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex space-x-4 mt-6">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Update</button>
+                    <button type="button" onclick="closeEditOrderModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Admin Modal -->
+    <div id="editAdminModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Edit Admin</h2>
+            <form onsubmit="updateAdmin(event)">
+                <input type="hidden" id="editAdminIndex">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input type="text" id="editAdminUsername" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password Baru (kosongkan jika tidak diubah)</label>
+                    <input type="password" id="editAdminPassword" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                    <select id="editAdminRole" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                        <option value="admin">Admin</option>
+                        <option value="admin_it">Admin IT</option>
+                    </select>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Update</button>
+                    <button type="button" onclick="closeEditAdminModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Admin Modal -->
+    <div id="addAdminModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Tambah Admin Baru</h2>
+            <form onsubmit="addAdmin(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input type="text" id="newAdminUsername" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="newAdminPassword" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                    <select id="newAdminRole" class="w-full px-3 py-2 border border-gray-300 rounded-md" required>
+                        <option value="admin">Admin</option>
+                        <option value="admin_it">Admin IT</option>
+                    </select>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="flex-1 bg-green-600 text-white py-2 rounded-md hover:bg-green-700">Simpan</button>
+                    <button type="button" onclick="closeAddAdminModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded-md hover:bg-gray-400">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Simulasi database dalam localStorage
+        let orders = JSON.parse(localStorage.getItem('orders')) || [
+            {
+                plateNumber: 'B 1234 ABC',
+                ticketNo: 'TKT001',
+                orderDate: '2024-01-15',
+                orderNo: 'ORD001',
+                partName: 'Brake Pad',
+                partNumber: 'BP-001',
+                estimatedPrice: 'Rp 500.000',
+                appointmentDate: '2024-01-20',
+                estimatedArrival: '2024-01-18',
+                shippingProgress: '80%',
+                partStatus: 'arrived',
+                lastUpdate: '2024-01-17 14:30'
+            }
+        ];
+
+        let admins = JSON.parse(localStorage.getItem('admins')) || [
+            { username: 'admin', password: 'admin123', role: 'admin' },
+            { username: 'adminit', password: 'adminit123', role: 'admin_it' }
+        ];
+
+        let currentAdmin = null;
+
+        // Simulasi WebSocket untuk real-time updates
+        function broadcastUpdate(type, data) {
+            // Dalam implementasi nyata, ini akan menggunakan WebSocket
+            console.log('Broadcasting update:', type, data);
+            
+            // Update UI secara real-time
+            if (type === 'order_update') {
+                updateOrderDisplay(data);
+            } else if (type === 'interface_update') {
+                updateInterface(data);
+            }
+        }
+
+        // Customer Functions
+        function showCustomerView() {
+            document.getElementById('customerView').classList.remove('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('adminLoginModal').classList.add('hidden');
+        }
+
+        function searchOrder() {
+            const plateNumber = document.getElementById('searchPlate').value.trim();
+            if (!plateNumber) {
+                alert('Masukkan nomor polisi');
+                return;
+            }
+
+            const order = orders.find(o => o.plateNumber.toLowerCase() === plateNumber.toLowerCase());
+            
+            if (order) {
+                displayOrderDetails(order);
+                document.getElementById('searchResults').classList.remove('hidden');
+            } else {
+                alert('Data tidak ditemukan');
+                document.getElementById('searchResults').classList.add('hidden');
+            }
+        }
+
+        function displayOrderDetails(order) {
+            // Mengisi data ke grid 4x3
+            document.getElementById('plateNumber').textContent = order.plateNumber;
+            document.getElementById('ticketNo').textContent = order.ticketNo;
+            document.getElementById('orderDate').textContent = order.orderDate;
+            document.getElementById('orderNo').textContent = order.orderNo;
+            document.getElementById('partName').textContent = order.partName;
+            document.getElementById('partNumber').textContent = order.partNumber;
+            document.getElementById('estimatedPrice').textContent = order.estimatedPrice;
+            document.getElementById('appointmentDate').textContent = order.appointmentDate;
+            document.getElementById('estimatedArrival').textContent = order.estimatedArrival;
+            document.getElementById('shippingProgress').textContent = order.shippingProgress;
+            document.getElementById('partStatus').textContent = order.partStatus;
+            document.getElementById('lastUpdate').textContent = order.lastUpdate;
+
+            // Membuat timeline visual
+            createTimeline(order.partStatus);
+        }
+
+        function createTimeline(currentStatus) {
+            const timeline = document.getElementById('progressTimeline');
+            const description = document.getElementById('timelineDescription');
+            const steps = [
+                { 
+                    id: 'order_placement', 
+                    name: 'Order Placement', 
+                    icon: '📝',
+                    desc: 'Pesanan Anda telah dibuat oleh bengkel dan sedang diproses'
+                },
+                { 
+                    id: 'order_processing', 
+                    name: 'Order Processing', 
+                    icon: '⚙️',
+                    desc: 'Pesanan sedang diproses dan spare part sedang disiapkan'
+                },
+                { 
+                    id: 'delivery', 
+                    name: 'Delivery', 
+                    icon: '🚚',
+                    desc: 'Spare part sedang dalam perjalanan menuju bengkel'
+                },
+                { 
+                    id: 'arrived', 
+                    name: 'Arrived', 
+                    icon: '📦',
+                    desc: 'Spare part telah tiba di bengkel dan siap dipasang'
+                },
+                { 
+                    id: 'delivered', 
+                    name: 'Delivered', 
+                    icon: '✅',
+                    desc: 'Spare part telah dipasang dan diserahkan kepada customer'
+                }
+            ];
+
+            const statusOrder = ['order_placement', 'order_processing', 'delivery', 'arrived', 'delivered'];
+            const currentIndex = statusOrder.indexOf(currentStatus);
+
+            timeline.innerHTML = '';
+            
+            steps.forEach((step, index) => {
+                const isActive = index <= currentIndex;
+                const isCurrent = index === currentIndex;
+                const statusClass = isActive ? `status-${step.id}` : 'status-pending';
+                
+                const stepElement = document.createElement('div');
+                stepElement.className = `timeline-step ${isActive ? 'active' : ''}`;
+                stepElement.innerHTML = `
+                    <div class="timeline-icon ${statusClass}">
+                        ${step.icon}
+                    </div>
+                    <div class="text-center">
+                        <h4 class="font-semibold text-xs ${isActive ? 'text-gray-800' : 'text-gray-400'}">${step.name}</h4>
+                    </div>
+                `;
+                timeline.appendChild(stepElement);
+            });
+
+            // Update description
+            const currentStep = steps[currentIndex];
+            if (currentStep) {
+                description.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="text-2xl">${currentStep.icon}</div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800">${currentStep.name}</h4>
+                            <p class="text-gray-600">${currentStep.desc}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Admin Functions
+        function showAdminLogin() {
+            document.getElementById('adminLoginModal').classList.remove('hidden');
+        }
+
+        function closeAdminLogin() {
+            document.getElementById('adminLoginModal').classList.add('hidden');
+        }
+
+        function adminLogin(event) {
+            event.preventDefault();
+            const username = document.getElementById('adminUsername').value;
+            const password = document.getElementById('adminPassword').value;
+
+            const admin = admins.find(a => a.username === username && a.password === password);
+            
+            if (admin) {
+                currentAdmin = admin;
+                document.getElementById('adminLoginModal').classList.add('hidden');
+                document.getElementById('customerView').classList.add('hidden');
+                document.getElementById('adminDashboard').classList.remove('hidden');
+                loadAdminData();
+            } else {
+                alert('Username atau password salah');
+            }
+        }
+
+        function adminLogout() {
+            currentAdmin = null;
+            document.getElementById('adminDashboard').classList.add('hidden');
+            showCustomerView();
+        }
+
+        function loadAdminData() {
+            loadOrdersTable();
+            loadAdminsTable();
+        }
+
+        function showAdminTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.admin-tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+                btn.classList.remove('border-red-500', 'text-red-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + 'Tab').classList.remove('hidden');
+            
+            // Add active class to selected button
+            event.target.classList.remove('border-transparent', 'text-gray-500');
+            event.target.classList.add('border-red-500', 'text-red-600');
+        }
+
+        function loadOrdersTable() {
+            const tbody = document.getElementById('ordersTableBody');
+            tbody.innerHTML = '';
+            
+            orders.forEach((order, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-2">${order.plateNumber}</td>
+                    <td class="px-4 py-2">${order.ticketNo}</td>
+                    <td class="px-4 py-2">${order.partName}</td>
+                    <td class="px-4 py-2">
+                        <select onchange="updateOrderStatus(${index}, this.value)" class="px-2 py-1 border rounded">
+                            <option value="order_placement" ${order.partStatus === 'order_placement' ? 'selected' : ''}>Order Placement</option>
+                            <option value="order_processing" ${order.partStatus === 'order_processing' ? 'selected' : ''}>Order Processing</option>
+                            <option value="delivery" ${order.partStatus === 'delivery' ? 'selected' : ''}>Delivery</option>
+                            <option value="arrived" ${order.partStatus === 'arrived' ? 'selected' : ''}>Arrived</option>
+                            <option value="delivered" ${order.partStatus === 'delivered' ? 'selected' : ''}>Delivered</option>
+                        </select>
+                    </td>
+                    <td class="px-4 py-2">
+                        <button onclick="editOrder(${index})" class="px-2 py-1 bg-blue-500 text-white rounded text-sm mr-2">Edit</button>
+                        <button onclick="deleteOrder(${index})" class="px-2 py-1 bg-red-500 text-white rounded text-sm">Hapus</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateOrderStatus(index, newStatus) {
+            orders[index].partStatus = newStatus;
+            orders[index].lastUpdate = new Date().toLocaleString('id-ID');
+            localStorage.setItem('orders', JSON.stringify(orders));
+            
+            // Broadcast real-time update
+            broadcastUpdate('order_update', orders[index]);
+        }
+
+        function showAddOrderModal() {
+            document.getElementById('addOrderModal').classList.remove('hidden');
+        }
+
+        function closeAddOrderModal() {
+            document.getElementById('addOrderModal').classList.add('hidden');
+        }
+
+        function addOrder(event) {
+            event.preventDefault();
+            
+            const newOrder = {
+                plateNumber: document.getElementById('newPlateNumber').value,
+                ticketNo: document.getElementById('newTicketNo').value,
+                orderDate: new Date().toISOString().split('T')[0],
+                orderNo: document.getElementById('newOrderNo').value,
+                partName: document.getElementById('newPartName').value,
+                partNumber: document.getElementById('newPartNumber').value,
+                estimatedPrice: document.getElementById('newEstimatedPrice').value,
+                appointmentDate: document.getElementById('newAppointmentDate').value,
+                estimatedArrival: document.getElementById('newEstimatedArrival').value,
+                shippingProgress: '0%',
+                partStatus: document.getElementById('newStatus').value,
+                lastUpdate: new Date().toLocaleString('id-ID')
+            };
+            
+            orders.push(newOrder);
+            localStorage.setItem('orders', JSON.stringify(orders));
+            loadOrdersTable();
+            closeAddOrderModal();
+            
+            // Broadcast real-time update
+            broadcastUpdate('order_update', newOrder);
+        }
+
+        function editOrder(index) {
+            const order = orders[index];
+            document.getElementById('editOrderIndex').value = index;
+            document.getElementById('editPlateNumber').value = order.plateNumber;
+            document.getElementById('editTicketNo').value = order.ticketNo;
+            document.getElementById('editOrderNo').value = order.orderNo;
+            document.getElementById('editPartName').value = order.partName;
+            document.getElementById('editPartNumber').value = order.partNumber;
+            document.getElementById('editEstimatedPrice').value = order.estimatedPrice;
+            document.getElementById('editAppointmentDate').value = order.appointmentDate;
+            document.getElementById('editEstimatedArrival').value = order.estimatedArrival;
+            document.getElementById('editStatus').value = order.partStatus;
+            document.getElementById('editOrderModal').classList.remove('hidden');
+        }
+
+        function closeEditOrderModal() {
+            document.getElementById('editOrderModal').classList.add('hidden');
+        }
+
+        function updateOrder(event) {
+            event.preventDefault();
+            
+            const index = parseInt(document.getElementById('editOrderIndex').value);
+            orders[index] = {
+                ...orders[index],
+                plateNumber: document.getElementById('editPlateNumber').value,
+                ticketNo: document.getElementById('editTicketNo').value,
+                orderNo: document.getElementById('editOrderNo').value,
+                partName: document.getElementById('editPartName').value,
+                partNumber: document.getElementById('editPartNumber').value,
+                estimatedPrice: document.getElementById('editEstimatedPrice').value,
+                appointmentDate: document.getElementById('editAppointmentDate').value,
+                estimatedArrival: document.getElementById('editEstimatedArrival').value,
+                partStatus: document.getElementById('editStatus').value,
+                lastUpdate: new Date().toLocaleString('id-ID')
+            };
+            
+            localStorage.setItem('orders', JSON.stringify(orders));
+            loadOrdersTable();
+            closeEditOrderModal();
+            
+            // Broadcast real-time update
+            broadcastUpdate('order_update', orders[index]);
+            alert('Order berhasil diupdate!');
+        }
+
+        function deleteOrder(index) {
+            // Konfirmasi penghapusan dengan menampilkan detail order
+            const order = orders[index];
+            if (confirm(`Yakin ingin menghapus order?\nNomor Polisi: ${order.plateNumber}\nTicket: ${order.ticketNo}\nPart: ${order.partName}`)) {
+                // Hapus order dari array
+                orders.splice(index, 1);
+                // Simpan perubahan ke localStorage
+                localStorage.setItem('orders', JSON.stringify(orders));
+                // Refresh tabel order
+                loadOrdersTable();
+                alert('Order berhasil dihapus!');
+            }
+        }
+
+        // Excel Functions
+        function downloadTemplate() {
+            // Membuat template Excel sederhana dalam format CSV
+            const template = `['Nomor Polisi','Ticket No', 'Order No','Nama Part','Part Number','Estimasi Harga','Tanggal Appointment','Estimasi Kedatangan','Status'],`;
+            const blob = new Blob([template], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Template Order Part.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function previewExcel() {
+            const file = document.getElementById('excelFile').files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csv = e.target.result;
+                const lines = csv.split('\n');
+                const headers = lines[0].split(',');
+                
+                let tableHTML = '<thead class="bg-gray-50"><tr>';
+                headers.forEach(header => {
+                    tableHTML += `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">${header.trim()}</th>`;
+                });
+                tableHTML += '</tr></thead><tbody class="divide-y divide-gray-200">';
+                
+                for (let i = 1; i < Math.min(lines.length, 6); i++) {
+                    if (lines[i].trim()) {
+                        const cells = lines[i].split(',');
+                        tableHTML += '<tr>';
+                        cells.forEach(cell => {
+                            tableHTML += `<td class="px-4 py-2">${cell.trim()}</td>`;
+                        });
+                        tableHTML += '</tr>';
+                    }
+                }
+                tableHTML += '</tbody>';
+                
+                document.getElementById('previewTable').innerHTML = tableHTML;
+                document.getElementById('excelPreview').classList.remove('hidden');
+            };
+            reader.readAsText(file);
+        }
+
+        function confirmUpload() {
+            const file = document.getElementById('excelFile').files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csv = e.target.result;
+                const lines = csv.split('\n');
+                
+                for (let i = 1; i < lines.length; i++) {
+                    if (lines[i].trim()) {
+                        const cells = lines[i].split(',');
+                        const newOrder = {
+                            plateNumber: cells[0]?.trim() || '',
+                            ticketNo: cells[1]?.trim() || '',
+                            orderNo: cells[2]?.trim() || '',
+                            partName: cells[3]?.trim() || '',
+                            partNumber: cells[4]?.trim() || '',
+                            estimatedPrice: cells[5]?.trim() || '',
+                            appointmentDate: cells[6]?.trim() || '',
+                            estimatedArrival: cells[7]?.trim() || '',
+                            partStatus: cells[8]?.trim() || 'order_placement',
+                            orderDate: new Date().toISOString().split('T')[0],
+                            shippingProgress: '0%',
+                            lastUpdate: new Date().toLocaleString('id-ID')
+                        };
+                        orders.push(newOrder);
+                    }
+                }
+                
+                localStorage.setItem('orders', JSON.stringify(orders));
+                loadOrdersTable();
+                cancelUpload();
+                alert('Data berhasil diupload!');
+            };
+            reader.readAsText(file);
+        }
+
+        function cancelUpload() {
+            document.getElementById('excelFile').value = '';
+            document.getElementById('excelPreview').classList.add('hidden');
+        }
+
+        // Interface Management Functions
+        function updateLogo() {
+            // Ambil URL logo dari input field
+            const logoUrl = document.getElementById('logoUrl').value.trim();
+            
+            // Validasi apakah URL sudah diisi
+            if (!logoUrl) {
+                alert('Silakan masukkan URL logo terlebih dahulu!');
+                return;
+            }
+            
+            // Validasi format URL (sederhana)
+            if (!logoUrl.startsWith('http://') && !logoUrl.startsWith('https://') && !logoUrl.startsWith('data:')) {
+                alert('URL harus dimulai dengan http://, https://, atau data: untuk base64');
+                return;
+            }
+            
+            // Update logo di halaman customer
+            const logoElement = document.getElementById('companyLogo');
+            logoElement.src = logoUrl;
+            
+            // Simpan URL logo ke localStorage untuk persistensi
+            localStorage.setItem('companyLogo', logoUrl);
+            
+            // Broadcast update ke semua client (simulasi real-time)
+            broadcastUpdate('interface_update', { type: 'logo', url: logoUrl });
+            
+            // Bersihkan input field setelah berhasil
+            document.getElementById('logoUrl').value = '';
+            
+            alert('Logo berhasil diupdate!');
+        }
+
+        function updateBanner() {
+            // Ambil URL banner dari input field
+            const bannerUrl = document.getElementById('bannerUrl').value.trim();
+            
+            // Validasi apakah URL sudah diisi
+            if (!bannerUrl) {
+                alert('Silakan masukkan URL banner terlebih dahulu!');
+                return;
+            }
+            
+            // Validasi format URL (sederhana)
+            if (!bannerUrl.startsWith('http://') && !bannerUrl.startsWith('https://') && !bannerUrl.startsWith('data:')) {
+                alert('URL harus dimulai dengan http://, https://, atau data: untuk base64');
+                return;
+            }
+            
+            // Update banner di halaman customer
+            const bannerElement = document.getElementById('bannerImage');
+            bannerElement.src = bannerUrl;
+            
+            // Simpan URL banner ke localStorage untuk persistensi
+            localStorage.setItem('bannerImage', bannerUrl);
+            
+            // Broadcast update ke semua client (simulasi real-time)
+            broadcastUpdate('interface_update', { type: 'banner', url: bannerUrl });
+            
+            // Bersihkan input field setelah berhasil
+            document.getElementById('bannerUrl').value = '';
+            
+            alert('Banner berhasil diupdate!');
+        }
+
+        function updateTestimonial(number) {
+            // Ambil URL testimoni dari input field berdasarkan nomor
+            const testimonialUrl = document.getElementById(`testimonial${number}Url`).value.trim();
+            
+            // Validasi apakah URL sudah diisi
+            if (!testimonialUrl) {
+                alert(`Silakan masukkan URL foto testimoni ${number} terlebih dahulu!`);
+                return;
+            }
+            
+            // Validasi format URL (sederhana)
+            if (!testimonialUrl.startsWith('http://') && !testimonialUrl.startsWith('https://') && !testimonialUrl.startsWith('data:')) {
+                alert('URL harus dimulai dengan http://, https://, atau data: untuk base64');
+                return;
+            }
+            
+            // Update foto testimoni di halaman customer
+            const testimonialElement = document.getElementById(`testimonial${number}Image`);
+            testimonialElement.src = testimonialUrl;
+            
+            // Simpan URL testimoni ke localStorage untuk persistensi
+            localStorage.setItem(`testimonial${number}Image`, testimonialUrl);
+            
+            // Broadcast update ke semua client (simulasi real-time)
+            broadcastUpdate('interface_update', { 
+                type: 'testimonial', 
+                number: number, 
+                url: testimonialUrl 
+            });
+            
+            // Bersihkan input field setelah berhasil
+            document.getElementById(`testimonial${number}Url`).value = '';
+            
+            alert(`Testimoni ${number} berhasil diupdate!`);
+        }
+
+        // Admin Management Functions
+        function loadAdminsTable() {
+            const tbody = document.getElementById('adminsTableBody');
+            tbody.innerHTML = '';
+            
+            admins.forEach((admin, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-2">${admin.username}</td>
+                    <td class="px-4 py-2">${admin.role}</td>
+                    <td class="px-4 py-2">
+                        <button onclick="editAdmin(${index})" class="px-2 py-1 bg-blue-500 text-white rounded text-sm mr-2">Edit</button>
+                        <button onclick="deleteAdmin(${index})" class="px-2 py-1 bg-red-500 text-white rounded text-sm">Hapus</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function showAddAdminModal() {
+            document.getElementById('addAdminModal').classList.remove('hidden');
+        }
+
+        function closeAddAdminModal() {
+            document.getElementById('addAdminModal').classList.add('hidden');
+        }
+
+        function addAdmin(event) {
+            event.preventDefault();
+            
+            const newAdmin = {
+                username: document.getElementById('newAdminUsername').value,
+                password: document.getElementById('newAdminPassword').value,
+                role: document.getElementById('newAdminRole').value
+            };
+            
+            admins.push(newAdmin);
+            localStorage.setItem('admins', JSON.stringify(admins));
+            loadAdminsTable();
+            closeAddAdminModal();
+            alert('Admin berhasil ditambahkan!');
+        }
+
+        function editAdmin(index) {
+            const admin = admins[index];
+            document.getElementById('editAdminIndex').value = index;
+            document.getElementById('editAdminUsername').value = admin.username;
+            document.getElementById('editAdminPassword').value = '';
+            document.getElementById('editAdminRole').value = admin.role;
+            document.getElementById('editAdminModal').classList.remove('hidden');
+        }
+
+        function closeEditAdminModal() {
+            document.getElementById('editAdminModal').classList.add('hidden');
+        }
+
+        function updateAdmin(event) {
+            event.preventDefault();
+            
+            const index = parseInt(document.getElementById('editAdminIndex').value);
+            const newPassword = document.getElementById('editAdminPassword').value;
+            
+            admins[index] = {
+                ...admins[index],
+                username: document.getElementById('editAdminUsername').value,
+                role: document.getElementById('editAdminRole').value
+            };
+            
+            // Update password only if provided
+            if (newPassword.trim()) {
+                admins[index].password = newPassword;
+            }
+            
+            localStorage.setItem('admins', JSON.stringify(admins));
+            loadAdminsTable();
+            closeEditAdminModal();
+            alert('Admin berhasil diupdate!');
+        }
+
+        function deleteAdmin(index) {
+            // Cek apakah admin yang akan dihapus adalah admin yang sedang login
+            if (admins[index].username === currentAdmin?.username) {
+                alert('Tidak dapat menghapus akun yang sedang login!');
+                return;
+            }
+            
+            // Konfirmasi penghapusan
+            if (confirm(`Yakin ingin menghapus admin "${admins[index].username}"?`)) {
+                // Hapus admin dari array
+                admins.splice(index, 1);
+                // Simpan perubahan ke localStorage
+                localStorage.setItem('admins', JSON.stringify(admins));
+                // Refresh tabel admin
+                loadAdminsTable();
+                alert('Admin berhasil dihapus!');
+            }
+        }
+
+        // Real-time update functions
+        function updateOrderDisplay(order) {
+            // Update tampilan jika order yang sedang dilihat customer berubah
+            const currentPlate = document.getElementById('plateNumber').textContent;
+            if (currentPlate === order.plateNumber) {
+                displayOrderDetails(order);
+            }
+        }
+
+        function updateInterface(data) {
+            // Update interface secara real-time
+            if (data.type === 'logo') {
+                document.getElementById('companyLogo').src = data.url;
+            } else if (data.type === 'banner') {
+                document.getElementById('bannerImage').src = data.url;
+            } else if (data.type === 'testimonial') {
+                document.getElementById(`testimonial${data.number}Image`).src = data.url;
+            } else if (data.type === 'feature') {
+                document.getElementById(`feature${data.number}Image`).src = data.url;
+            }
+        }
+
+        // Fungsi untuk menghandle upload file logo
+        function handleLogoUpload() {
+            const fileInput = document.getElementById('logoFile');
+            const file = fileInput.files[0];
+            
+            // Cek apakah ada file yang dipilih
+            if (!file) return;
+            
+            // Validasi tipe file (hanya gambar)
+            if (!file.type.startsWith('image/')) {
+                alert('File harus berupa gambar (JPG, PNG, GIF, dll)');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Validasi ukuran file (maksimal 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Ukuran file maksimal 5MB');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Konversi file ke base64 untuk ditampilkan
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Set hasil base64 ke input URL
+                document.getElementById('logoUrl').value = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Fungsi untuk menghandle upload file banner
+        function handleBannerUpload() {
+            const fileInput = document.getElementById('bannerFile');
+            const file = fileInput.files[0];
+            
+            // Cek apakah ada file yang dipilih
+            if (!file) return;
+            
+            // Validasi tipe file (hanya gambar)
+            if (!file.type.startsWith('image/')) {
+                alert('File harus berupa gambar (JPG, PNG, GIF, dll)');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Validasi ukuran file (maksimal 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Ukuran file maksimal 5MB');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Konversi file ke base64 untuk ditampilkan
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Set hasil base64 ke input URL
+                document.getElementById('bannerUrl').value = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Fungsi untuk menghandle upload file testimoni
+        function handleTestimonialUpload(number) {
+            const fileInput = document.getElementById(`testimonial${number}File`);
+            const file = fileInput.files[0];
+            
+            // Cek apakah ada file yang dipilih
+            if (!file) return;
+            
+            // Validasi tipe file (hanya gambar)
+            if (!file.type.startsWith('image/')) {
+                alert('File harus berupa gambar (JPG, PNG, GIF, dll)');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Validasi ukuran file (maksimal 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Ukuran file maksimal 5MB');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Konversi file ke base64 untuk ditampilkan
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Set hasil base64 ke input URL
+                document.getElementById(`testimonial${number}Url`).value = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Fungsi untuk menghandle upload file fitur banner
+        function handleFeatureUpload(number) {
+            const fileInput = document.getElementById(`feature${number}File`);
+            const file = fileInput.files[0];
+            
+            // Cek apakah ada file yang dipilih
+            if (!file) return;
+            
+            // Validasi tipe file (hanya gambar)
+            if (!file.type.startsWith('image/')) {
+                alert('File harus berupa gambar (JPG, PNG, GIF, dll)');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Validasi ukuran file (maksimal 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Ukuran file maksimal 5MB');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Konversi file ke base64 untuk ditampilkan
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Set hasil base64 ke input URL
+                document.getElementById(`feature${number}Url`).value = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Fungsi untuk update gambar fitur banner
+        function updateFeature(number) {
+            // Ambil URL fitur dari input field
+            const featureUrl = document.getElementById(`feature${number}Url`).value.trim();
+            
+            // Validasi apakah URL sudah diisi
+            if (!featureUrl) {
+                alert(`Silakan masukkan URL gambar fitur ${number} terlebih dahulu!`);
+                return;
+            }
+            
+            // Validasi format URL (sederhana)
+            if (!featureUrl.startsWith('http://') && !featureUrl.startsWith('https://') && !featureUrl.startsWith('data:')) {
+                alert('URL harus dimulai dengan http://, https://, atau data: untuk base64');
+                return;
+            }
+            
+            // Update gambar fitur di halaman customer
+            const featureElement = document.getElementById(`feature${number}Image`);
+            featureElement.src = featureUrl;
+            
+            // Simpan URL fitur ke localStorage untuk persistensi
+            localStorage.setItem(`feature${number}Image`, featureUrl);
+            
+            // Broadcast update ke semua client (simulasi real-time)
+            broadcastUpdate('interface_update', { 
+                type: 'feature', 
+                number: number, 
+                url: featureUrl 
+            });
+            
+            // Bersihkan input field setelah berhasil
+            document.getElementById(`feature${number}Url`).value = '';
+            
+            // Nama fitur untuk pesan konfirmasi
+            const featureNames = {
+                1: 'Pengiriman Cepat',
+                2: 'Pemasangan Profesional', 
+                3: 'Sparepart Original'
+            };
+            
+            alert(`Gambar ${featureNames[number]} berhasil diupdate!`);
+        }
+
+        // Fungsi untuk memuat gambar yang tersimpan saat halaman dimuat
+        function loadSavedImages() {
+            // Load logo yang tersimpan
+            const savedLogo = localStorage.getItem('companyLogo');
+            if (savedLogo) {
+                document.getElementById('companyLogo').src = savedLogo;
+            }
+            
+            // Load banner yang tersimpan
+            const savedBanner = localStorage.getItem('bannerImage');
+            if (savedBanner) {
+                document.getElementById('bannerImage').src = savedBanner;
+            }
+            
+            // Load testimoni yang tersimpan
+            for (let i = 1; i <= 3; i++) {
+                const savedTestimonial = localStorage.getItem(`testimonial${i}Image`);
+                if (savedTestimonial) {
+                    document.getElementById(`testimonial${i}Image`).src = savedTestimonial;
+                }
+            }
+            
+            // Load gambar fitur banner yang tersimpan
+            for (let i = 1; i <= 3; i++) {
+                const savedFeature = localStorage.getItem(`feature${i}Image`);
+                if (savedFeature) {
+                    document.getElementById(`feature${i}Image`).src = savedFeature;
+                }
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            showCustomerView();
+            // Muat gambar yang tersimpan saat halaman dimuat
+            loadSavedImages();
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96e51c5977d63e35',t:'MTc1NTA1NTU4NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
